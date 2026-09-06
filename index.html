@@ -886,29 +886,45 @@
     items.forEach(function (el) { io.observe(el); });
   })();
 
-  /* ===== 背景音乐 ===== */
+  /* ===== 背景音乐（默认开启：加载即播；浏览器拦截时首次点击页面自动响） ===== */
   var bgm = document.getElementById('bgm');
   var musicBtn = document.getElementById('music-btn');
-  var musicOk = false;
+  var autoStarted = false;
 
-  bgm.addEventListener('canplaythrough', function () {
-    musicOk = true;
-  }, { once: true });
   bgm.addEventListener('error', function () {
     musicBtn.style.display = 'none';
   });
 
-  musicBtn.addEventListener('click', function () {
-    if (!musicOk && bgm.readyState < 1) {
-      bgm.load();
+  function startMusic() {
+    if (autoStarted) return;
+    autoStarted = true;
+    var p = bgm.play();
+    if (p && p.catch) {
+      p.catch(function () {
+        autoStarted = false; /* 被浏览器拦截，等首次用户交互再播 */
+      });
     }
+    musicBtn.classList.add('playing');
+    musicBtn.setAttribute('aria-pressed', 'true');
+  }
+
+  /* 1) 音频加载完成即尝试自动播放 */
+  bgm.addEventListener('loadeddata', startMusic);
+  bgm.load();
+
+  /* 2) 被拦截时：用户第一次点击/触摸页面任意处自动开启 */
+  document.addEventListener('click', function once() {
+    startMusic();
+  }, { once: true, passive: true });
+  document.addEventListener('touchstart', function once() {
+    startMusic();
+  }, { once: true, passive: true });
+
+  /* 3) 右下角按钮手动开关 */
+  musicBtn.addEventListener('click', function () {
     if (bgm.paused) {
       var p = bgm.play();
-      if (p && p.catch) {
-        p.catch(function () {
-          musicBtn.style.display = 'none';
-        });
-      }
+      if (p && p.catch) p.catch(function () {});
       musicBtn.classList.add('playing');
       musicBtn.setAttribute('aria-pressed', 'true');
     } else {
